@@ -2,7 +2,7 @@
 
 set -e
 
-usage="Usage: './deploy.sh image-name selector namespace' e.g. './deploy.sh my-img-name app=myApp development'"
+usage="Usage: './rolling_deploy.sh image-name selector namespace' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace'"
 
 if [[ $# -ne 3 ]]; then
     echo "Incorrect number of arguments, 3 required";
