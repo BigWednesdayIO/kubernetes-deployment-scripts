@@ -35,5 +35,5 @@ ssh-keygen -f ~/.ssh/google_compute_engine -N ""
 ~/google-cloud-sdk/bin/gcloud docker push ${REMOTE_REPOSITORY}/${IMAGE}:${VERSION_ID} > /dev/null
 
 # Rolling update
-OLD_RC=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} | cut -f1 -d " " | tail -1)
+OLD_RC=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} | cut -f1 -d " " | tail -1)
 ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC} ${IMAGE}-${VERSION_ID} --image=${REMOTE_REPOSITORY}/${IMAGE}:${VERSION_ID} --namespace=${NAMESPACE}
