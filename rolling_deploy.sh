@@ -2,10 +2,10 @@
 
 set -e
 
-usage="Usage: './rolling_deploy.sh image-name selector namespace' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace'"
+usage="Usage: './rolling_deploy.sh image-name selector namespace context' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace .'"
 
-if [[ $# -ne 3 ]]; then
-    echo "Incorrect number of arguments, 3 required";
+if [[ $# -ne 4 ]]; then
+    echo "Incorrect number of arguments, 4 required";
     echo $usage;
     exit 1;
 fi
@@ -13,6 +13,7 @@ fi
 IMAGE=$1;
 SELECTOR=$2;
 NAMESPACE=$3
+CONTEXT=$4
 
 VERSION_ID=${CIRCLE_SHA1:0:7}
 REMOTE_REPOSITORY=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJECT}
@@ -22,7 +23,7 @@ export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 export CLOUDSDK_PYTHON_SITEPACKAGES=1
 
 # Build image
-docker build -t ${QUALIFIED_IMAGE_NAME} .
+docker build -t ${QUALIFIED_IMAGE_NAME} ${CONTEXT}
 
 # Authenticate gcloud SDK
 echo $GCLOUD_KEY | base64 --decode > gcloud.p12
