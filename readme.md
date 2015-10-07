@@ -6,3 +6,4 @@
 - GCLOUD_CLUSTER - cluster to deploy to
 - GCLOUD_EMAIL - email of the GCloud service account
 - GCLOUD_KEY - base 64 encoded single JSON cert of the GCloud service account
+- GCLOUD_REGISTRY_PREFIX - where the image registry should be located. Blank for US, "eu." for Europe
