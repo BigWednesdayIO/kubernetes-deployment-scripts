@@ -2,7 +2,7 @@
 
 set -e
 
-usage="Usage: './rolling_deploy.sh image-name selector namespace context rc' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.yaml'"
+usage="Usage: './rolling_deploy.sh image-name selector namespace context rc' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.json'"
 
 if [[ $# -ne 5 ]]; then
     echo "Incorrect number of arguments, 5 required";
@@ -23,25 +23,29 @@ QUALIFIED_IMAGE_NAME=${REMOTE_REPOSITORY}/${IMAGE}:${TAG}
 export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 export CLOUDSDK_PYTHON_SITEPACKAGES=1
 
-# Build image
+echo "Building image ${QUALIFIED_IMAGE_NAME} with context ${CONTEXT}"
 docker build -t ${QUALIFIED_IMAGE_NAME} ${CONTEXT}
 
-# Authenticate gcloud SDK
+echo "Activating service account"
 echo $GCLOUD_KEY | base64 --decode > gcloud.p12
 ~/google-cloud-sdk/bin/gcloud auth activate-service-account $GCLOUD_EMAIL --key-file gcloud.p12
 ssh-keygen -f ~/.ssh/google_compute_engine -N ""
 
-# Set cluster
+echo "Authenticating gcloud SDK"
 ~/google-cloud-sdk/bin/gcloud container clusters get-credentials $GCLOUD_CLUSTER
 
-# Push image to gcloud
+echo "Pusing image to registry"
 ~/google-cloud-sdk/bin/gcloud docker push ${QUALIFIED_IMAGE_NAME} > /dev/null
 
-# Rolling update
 OLD_RC=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} -o template --template="{{(index .items 0).metadata.name}}")
-REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC} --namespace=${NAMESPACE} -o template --template="{{.spec.replicas}}")
+echo "Old replication controller name: ${OLD_RC}"
 
-# Expand env variables and perform rolling update
+REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC} --namespace=${NAMESPACE} -o template --template="{{.spec.replicas}}")
+echo "Current replicas: ${REPLICAS}"
+
+echo "Updating using config:"
+cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg'
+
 cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' | \
   ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC} --namespace=${NAMESPACE} -f -
 
