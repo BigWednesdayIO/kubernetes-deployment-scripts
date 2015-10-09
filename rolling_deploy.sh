@@ -16,10 +16,9 @@ NAMESPACE=$3
 CONTEXT=$4
 RC_FILE=$5
 
-TAG=${CIRCLE_SHA1:0:7}
-REMOTE_REPOSITORY=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJECT}
-QUALIFIED_IMAGE_NAME=${REMOTE_REPOSITORY}/${IMAGE}:${TAG}
-
+export NAMESPACE=$NAMESPACE
+export TAG=${CIRCLE_SHA1:0:7}
+export QUALIFIED_IMAGE_NAME=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJECT}/${IMAGE}:${TAG}
 export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 export CLOUDSDK_PYTHON_SITEPACKAGES=1
 
@@ -40,7 +39,7 @@ echo "Pusing image to registry"
 OLD_RC=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} -o template --template="{{(index .items 0).metadata.name}}")
 echo "Old replication controller name: ${OLD_RC}"
 
-REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC} --namespace=${NAMESPACE} -o template --template="{{.spec.replicas}}")
+export REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC} --namespace=${NAMESPACE} -o template --template="{{.spec.replicas}}")
 echo "Current replicas: ${REPLICAS}"
 
 echo "Expanding variables in config file"
