@@ -2,10 +2,10 @@
 
 set -e
 
-usage="Usage: './rolling_deploy.sh image-name selector namespace context' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace .'"
+usage="Usage: './rolling_deploy.sh image-name selector namespace context rc' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.yaml'"
 
-if [[ $# -ne 4 ]]; then
-    echo "Incorrect number of arguments, 4 required";
+if [[ $# -ne 5 ]]; then
+    echo "Incorrect number of arguments, 5 required";
     echo $usage;
     exit 1;
 fi
@@ -14,6 +14,7 @@ IMAGE=$1;
 SELECTOR=$2;
 NAMESPACE=$3
 CONTEXT=$4
+RC_FILE=$5
 
 VERSION_ID=${CIRCLE_SHA1:0:7}
 REMOTE_REPOSITORY=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJECT}
@@ -37,5 +38,11 @@ ssh-keygen -f ~/.ssh/google_compute_engine -N ""
 ~/google-cloud-sdk/bin/gcloud docker push ${QUALIFIED_IMAGE_NAME} > /dev/null
 
 # Rolling update
-OLD_RC=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} | cut -f1 -d " " | tail -1)
-~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC} ${IMAGE}-rc-${VERSION_ID} --image=${QUALIFIED_IMAGE_NAME} --namespace=${NAMESPACE}
+OLD_RC=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} -o template --template="{{(index .items 0).metadata.name}}")
+REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC} --namespace=${NAMESPACE} -o template --template="{{(index .items 0).spec.replicas}}")
+
+# Expand env variables and perform rolling update
+cat ${CONTEXT}/kubernetes/rc.json | \
+  perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' | \
+  ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC} --namespace=${NAMESPACE} -f -
+
