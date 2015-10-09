@@ -42,7 +42,6 @@ OLD_RC=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAME
 REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC} --namespace=${NAMESPACE} -o template --template="{{(index .items 0).spec.replicas}}")
 
 # Expand env variables and perform rolling update
-cat ${CONTEXT}/kubernetes/rc.json | \
-  perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' | \
+cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' | \
   ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC} --namespace=${NAMESPACE} -f -
 
