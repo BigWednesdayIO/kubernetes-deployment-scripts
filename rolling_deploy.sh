@@ -43,9 +43,11 @@ echo "Old replication controller name: ${OLD_RC}"
 REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC} --namespace=${NAMESPACE} -o template --template="{{.spec.replicas}}")
 echo "Current replicas: ${REPLICAS}"
 
-echo "Updating using config:"
-cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg'
+echo "Expanding variables in config file"
+cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > rc.txt
 
-cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' | \
-  ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC} --namespace=${NAMESPACE} -f -
+echo "Updating using config:"
+cat rc.txt
+
+cat rc.txt | ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC} --namespace=${NAMESPACE} -f -
 
