@@ -61,6 +61,19 @@ if [[ $RC_QUERY_RESULT == "[]" ]]; then
 
   export REPLICAS=1
   cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > rc.txt
+
+  echo Checking all required secrets exist
+  SECRETS=$(cat rc.txt | json spec.template.spec.volumes | json -a secret.secretName)
+  for s in $(echo $SECRETS | tr " " "\n")
+  do
+     SECRET_EXISTS=$(~/google-cloud-sdk/bin/kubectl get secret $s || true)
+     if [[ -z $SECRET_EXISTS ]]; then
+      echo "Secret $s does not exist in namespace $NAMESPACE"
+      exit 1
+     fi
+     unset SECRET_EXISTS
+  done
+
   echo "Creating rc using config:"
   cat rc.txt
   cat rc.txt | ~/google-cloud-sdk/bin/kubectl create --namespace=${NAMESPACE} -f -
