@@ -45,17 +45,17 @@ echo "Expanding variables in service config file"
 cat ${SVC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > svc.txt
 echo "Checking for existing svc"
 SVC_NAME=$(cat svc.txt | json metadata.name)
-SVC_EXISTS=$(kubectl get svc $SVC_NAME || true)
+SVC_EXISTS=$(~/google-cloud-sdk/bin/kubectl get svc $SVC_NAME || true)
 if [[ -z $SVC_EXISTS ]]; then
   echo "Creating svc $SVC_NAME"
-  cat svc.txt | kubectl create --namespace=${NAMESPACE} -f -
+  cat svc.txt | ~/google-cloud-sdk/bin/kubectl create --namespace=${NAMESPACE} -f -
 fi
 if [[ -n $SVC_EXISTS ]]; then
   echo "svc $SVC_NAME is already deployed"
 fi
 
 echo "Checking for existing rc"
-RC_QUERY_RESULT=$(kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} -o template --template="{{.items}}")
+RC_QUERY_RESULT=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} -o template --template="{{.items}}")
 if [[ $RC_QUERY_RESULT == "[]" ]]; then
   echo "Deploying new rc"
 
@@ -63,7 +63,7 @@ if [[ $RC_QUERY_RESULT == "[]" ]]; then
   cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > rc.txt
   echo "Creating rc using config:"
   cat rc.txt
-  cat rc.txt | kubectl create --namespace=${NAMESPACE} -f -
+  cat rc.txt | ~/google-cloud-sdk/bin/kubectl create --namespace=${NAMESPACE} -f -
 fi
 
 if [[ $RC_QUERY_RESULT != "[]" ]]; then
