@@ -45,7 +45,7 @@ echo "Expanding variables in service config file"
 cat ${SVC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > svc.txt
 echo "Checking for existing svc"
 SVC_NAME=$(cat svc.txt | json metadata.name)
-SVC_EXISTS=$(~/google-cloud-sdk/bin/kubectl get svc $SVC_NAME || true)
+SVC_EXISTS=$(~/google-cloud-sdk/bin/kubectl get svc $SVC_NAME --namespace=${NAMESPACE} || true)
 if [[ -z $SVC_EXISTS ]]; then
   echo "Creating svc $SVC_NAME"
   cat svc.txt | ~/google-cloud-sdk/bin/kubectl create --namespace=${NAMESPACE} -f -
@@ -66,7 +66,7 @@ if [[ $RC_QUERY_RESULT == "[]" ]]; then
   SECRETS=$(cat rc.txt | json spec.template.spec.volumes | json -a secret.secretName)
   for s in $(echo $SECRETS | tr " " "\n")
   do
-     SECRET_EXISTS=$(~/google-cloud-sdk/bin/kubectl get secret $s || true)
+     SECRET_EXISTS=$(~/google-cloud-sdk/bin/kubectl get secret $s --namespace=${NAMESPACE} || true)
      if [[ -z $SECRET_EXISTS ]]; then
       echo "Secret $s does not exist in namespace $NAMESPACE"
       exit 1
