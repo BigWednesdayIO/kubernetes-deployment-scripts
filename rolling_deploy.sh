@@ -2,10 +2,10 @@
 
 set -e
 
-usage="Usage: './rolling_deploy.sh image-name selector namespace context rc' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.json'"
+usage="Usage: './rolling_deploy.sh image-name selector namespace context rc' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.json ./kubernetes/service.json'"
 
-if [[ $# -ne 5 ]]; then
-    echo "Incorrect number of arguments, 5 required";
+if [[ $# -ne 6 ]]; then
+    echo "Incorrect number of arguments, 6 required";
     echo $usage;
     exit 1;
 fi
@@ -15,6 +15,7 @@ SELECTOR=$2;
 NAMESPACE=$3
 CONTEXT=$4
 RC_FILE=$5
+SVC_FILE=$6
 
 export NAMESPACE=$NAMESPACE
 export TAG=${CIRCLE_SHA1:0:7}-ci${CIRCLE_BUILD_NUM}
@@ -22,6 +23,9 @@ export QUALIFIED_IMAGE_NAME=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJ
 export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 export CLOUDSDK_PYTHON_SITEPACKAGES=1
 export DEPLOYMENT_ID=$CIRCLE_BUILD_NUM
+
+echo "Checking for json command line tool"
+json --version
 
 echo "Building image ${QUALIFIED_IMAGE_NAME} with context ${CONTEXT}"
 docker build -t ${QUALIFIED_IMAGE_NAME} ${CONTEXT}
@@ -34,20 +38,64 @@ ssh-keygen -f ~/.ssh/google_compute_engine -N ""
 echo "Authenticating gcloud SDK"
 ~/google-cloud-sdk/bin/gcloud container clusters get-credentials $GCLOUD_CLUSTER
 
-echo "Pusing image to registry"
+echo "Pushing image to registry"
 ~/google-cloud-sdk/bin/gcloud docker push ${QUALIFIED_IMAGE_NAME} > /dev/null
 
-OLD_RC=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} -o template --template="{{(index .items 0).metadata.name}}")
-echo "Old replication controller name: ${OLD_RC}"
+echo "Expanding variables in service config file"
+cat ${SVC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > svc.txt
+echo "Checking for existing svc"
+SVC_NAME=$(cat svc.txt | json metadata.name)
+SVC_EXISTS=$(~/google-cloud-sdk/bin/kubectl get svc $SVC_NAME --namespace=${NAMESPACE} || true)
+if [[ -z $SVC_EXISTS ]]; then
+  echo "Creating svc $SVC_NAME"
+  cat svc.txt | ~/google-cloud-sdk/bin/kubectl create --namespace=${NAMESPACE} -f -
+fi
+if [[ -n $SVC_EXISTS ]]; then
+  echo "svc $SVC_NAME is already deployed"
+fi
 
-export REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC} --namespace=${NAMESPACE} -o template --template="{{.spec.replicas}}")
-echo "Current replicas: ${REPLICAS}"
+echo "Checking for existing rc"
+RC_QUERY_RESULT=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} -o template --template="{{.items}}")
+if [[ $RC_QUERY_RESULT == "[]" ]]; then
+  echo "Deploying new rc"
 
-echo "Expanding variables in config file"
-cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > rc.txt
+  export REPLICAS=1
+  cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > rc.txt
 
-echo "Updating using config:"
-cat rc.txt
+  echo Checking all required secrets exist
+  SECRETS=$(cat rc.txt | json spec.template.spec.volumes | json -a secret.secretName)
+  for s in $(echo $SECRETS | tr " " "\n")
+  do
+     SECRET_EXISTS=$(~/google-cloud-sdk/bin/kubectl get secret $s --namespace=${NAMESPACE} || true)
+     if [[ -z $SECRET_EXISTS ]]; then
+      echo "Secret $s does not exist in namespace $NAMESPACE"
+      exit 1
+     fi
+     unset SECRET_EXISTS
+  done
 
-cat rc.txt | ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC} --namespace=${NAMESPACE} -f -
+  echo "Creating rc using config:"
+  cat rc.txt
+  cat rc.txt | ~/google-cloud-sdk/bin/kubectl create --namespace=${NAMESPACE} -f -
+fi
+
+if [[ $RC_QUERY_RESULT != "[]" ]]; then
+  echo "Performing rc rolling update"
+
+  OLD_RC_NAME=$(~/google-cloud-sdk/bin/kubectl get rc -l ${SELECTOR} --namespace=${NAMESPACE} -o template --template="{{(index .items 0).metadata.name}}")
+  echo "Old replication controller name: ${OLD_RC_NAME}"
+
+  export REPLICAS=$(~/google-cloud-sdk/bin/kubectl get rc ${OLD_RC_NAME} --namespace=${NAMESPACE} -o template --template="{{.spec.replicas}}")
+  echo "Current replicas: ${REPLICAS}"
+
+  echo "Expanding variables in rc config file"
+  cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > rc.txt
+
+  echo "Updating rc using config:"
+  cat rc.txt
+  cat rc.txt | ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC_NAME} --namespace=${NAMESPACE} -f -
+fi
+
+
+
 
