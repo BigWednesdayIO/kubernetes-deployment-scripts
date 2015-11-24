@@ -74,8 +74,7 @@ if [[ $RC_QUERY_RESULT == "[]" ]]; then
      unset SECRET_EXISTS
   done
 
-  echo "Creating rc using config:"
-  cat rc.txt
+  echo "Creating rc"
   cat rc.txt | ~/google-cloud-sdk/bin/kubectl create --namespace=${NAMESPACE} -f -
 fi
 
@@ -91,8 +90,7 @@ if [[ $RC_QUERY_RESULT != "[]" ]]; then
   echo "Expanding variables in rc config file"
   cat ${RC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > rc.txt
 
-  echo "Updating rc using config:"
-  cat rc.txt
+  echo "Updating rc"
   cat rc.txt | ~/google-cloud-sdk/bin/kubectl rolling-update ${OLD_RC_NAME} --namespace=${NAMESPACE} -f -
 fi
 
