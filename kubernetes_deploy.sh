@@ -2,7 +2,7 @@
 
 set -e
 
-usage="Usage: './rolling_deploy.sh image-name selector namespace context rc' e.g. './rolling_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.json ./kubernetes/service.json'"
+usage="Usage: './kubernetes_deploy.sh image-name selector namespace context rc' e.g. './kubernetes_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.json ./kubernetes/service.json'"
 
 if [[ $# -ne 6 ]]; then
     echo "Incorrect number of arguments, 6 required";
@@ -25,18 +25,15 @@ export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 export CLOUDSDK_PYTHON_SITEPACKAGES=1
 export DEPLOYMENT_ID=$CIRCLE_BUILD_NUM
 
-echo "Checking for json command line tool"
-json --version
+echo "Installing json command line tool"
+npm install -g json
 
 echo "Building image ${QUALIFIED_IMAGE_NAME} with context ${CONTEXT}"
 docker build -t ${QUALIFIED_IMAGE_NAME} ${CONTEXT}
 
-echo "Activating service account"
-echo $GCLOUD_KEY | base64 --decode > gcloud.p12
-~/google-cloud-sdk/bin/gcloud auth activate-service-account $GCLOUD_EMAIL --key-file gcloud.p12
-ssh-keygen -f ~/.ssh/google_compute_engine -N ""
+source ./authenticate.sh
 
-echo "Authenticating gcloud SDK"
+echo "Authenticating against cluster"
 ~/google-cloud-sdk/bin/gcloud container clusters get-credentials $GCLOUD_CLUSTER
 
 echo "Pushing image to registry"
