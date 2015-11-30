@@ -31,7 +31,7 @@ npm install -g json
 echo "Building image ${QUALIFIED_IMAGE_NAME} with context ${CONTEXT}"
 docker build -t ${QUALIFIED_IMAGE_NAME} ${CONTEXT}
 
-source ./authenticate.sh
+source $(dirname "$0")/authenticate.sh
 
 echo "Authenticating against cluster"
 ~/google-cloud-sdk/bin/gcloud container clusters get-credentials $GCLOUD_CLUSTER
