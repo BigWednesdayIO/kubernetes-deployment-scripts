@@ -41,6 +41,7 @@ echo "Pushing image to registry"
 if [[ -z $ADDITIONAL_TAG ]]; then
   ADDITIONAL_IMAGE=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJECT}/${IMAGE}:${ADDITIONAL_TAG}
 
+  echo "Pushing additional ${ADDITIONAL_IMAGE} image to registry"
   docker tag ${QUALIFIED_IMAGE_NAME} ${ADDITIONAL_IMAGE}
   ~/google-cloud-sdk/bin/gcloud docker push ${ADDITIONAL_IMAGE} > /dev/null
 fi
