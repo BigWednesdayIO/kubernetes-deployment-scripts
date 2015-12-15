@@ -4,8 +4,8 @@ set -e
 
 usage="Usage: './kubernetes_deploy.sh image-name selector namespace context rc' e.g. './kubernetes_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.json ./kubernetes/service.json'"
 
-if [[ $# -ne 6 ]]; then
-    echo "Incorrect number of arguments, 6 required";
+if [[ $# -lt 6 ]]; then
+    echo "Incorrect number of arguments, minimum of 6 required";
     echo $usage;
     exit 1;
 fi
@@ -16,11 +16,11 @@ NAMESPACE=$3
 CONTEXT=$4
 RC_FILE=$5
 SVC_FILE=$6
+ADDITIONAL_TAG=$7
 
 export NAMESPACE=$NAMESPACE
 export VERSION=${CIRCLE_SHA1:0:7}-ci${CIRCLE_BUILD_NUM}
-IMAGE_TAG=${OVERRIDE_IMAGE_TAG:-${VERSION}}
-export QUALIFIED_IMAGE_NAME=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJECT}/${IMAGE}:${IMAGE_TAG}
+export QUALIFIED_IMAGE_NAME=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJECT}/${IMAGE}:${VERSION}
 export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 export CLOUDSDK_PYTHON_SITEPACKAGES=1
 export DEPLOYMENT_ID=$CIRCLE_BUILD_NUM
@@ -38,6 +38,14 @@ echo "Authenticating against cluster"
 
 echo "Pushing image to registry"
 ~/google-cloud-sdk/bin/gcloud docker push ${QUALIFIED_IMAGE_NAME} > /dev/null
+
+if [[ -z $ADDITIONAL_TAG ]]; then
+  ADDITIONAL_IMAGE=${GCLOUD_REGISTRY_PREFIX}gcr.io/${CLOUDSDK_CORE_PROJECT}/${IMAGE}:${ADDITIONAL_TAG}
+
+  echo "Pushing additional ${ADDITIONAL_IMAGE} image to registry"
+  docker tag ${QUALIFIED_IMAGE_NAME} ${ADDITIONAL_IMAGE}
+  ~/google-cloud-sdk/bin/gcloud docker push ${ADDITIONAL_IMAGE} > /dev/null
+fi
 
 echo "Expanding variables in service config file"
 cat ${SVC_FILE} | perl -pe 's/\{\{(\w+)\}\}/$ENV{$1}/eg' > svc.txt
