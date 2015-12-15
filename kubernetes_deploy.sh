@@ -4,8 +4,8 @@ set -e
 
 usage="Usage: './kubernetes_deploy.sh image-name selector namespace context rc' e.g. './kubernetes_deploy.sh myImageName app=myApp myNamespace . ./kubernetes/rc.json ./kubernetes/service.json'"
 
-if [[ $# -ne 6 ]]; then
-    echo "Incorrect number of arguments, 6 required";
+if [[ $# -lt 6 ]]; then
+    echo "Incorrect number of arguments, minimum of 6 required";
     echo $usage;
     exit 1;
 fi
@@ -16,6 +16,7 @@ NAMESPACE=$3
 CONTEXT=$4
 RC_FILE=$5
 SVC_FILE=$6
+ADDITIONAL_TAG=$7
 
 export NAMESPACE=$NAMESPACE
 export VERSION=${CIRCLE_SHA1:0:7}-ci${CIRCLE_BUILD_NUM}
